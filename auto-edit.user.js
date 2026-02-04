@@ -1,8 +1,9 @@
+
 // ==UserScript==
-// @name         Auto Edit
+// @name         Auto Edit v12 botón
 // @namespace    http://tampermonkey.net/
-// @version      2.3
-// @description  Automatizes Pending Research Process
+// @version      3.3
+// @description  Automatizes Pending Research Process now with an amazing button
 // @author       juagarcm
 // @match        https://aft-qt-eu.aka.amazon.com/app/edititems*
 // @grant        none
@@ -12,8 +13,10 @@
 (function() {
     'use strict';
 
-    console.log('Edit Items Auto-Filler v2.3 loaded at:', new Date().toISOString());
+    console.log('Edit Items Auto-Filler v3.3 loaded at:', new Date().toISOString());
 
+    // Script state management - Load from localStorage
+    let scriptEnabled = localStorage.getItem('autoEditScriptEnabled') !== 'false'; // Default to true
     let autoSubmitTimer = null;
     let lastInputValue = '';
     let hasAutoSubmitted = false;
@@ -22,6 +25,101 @@
     let inputObserver = null;
     let submitButtonObserver = null;
     let submitButtonClicked = false;
+    let investigacionCheckAttempts = 0;
+    const MAX_INVESTIGACION_CHECKS = 5;
+
+    // Create toggle button
+    function createToggleButton() {
+        const toggleButton = document.createElement('div');
+        toggleButton.id = 'script-toggle-button';
+        toggleButton.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000000;
+            cursor: pointer;
+            user-select: none;
+        `;
+
+        const pill = document.createElement('div');
+        pill.id = 'toggle-pill';
+
+        // Set initial state based on localStorage
+        const isEnabled = scriptEnabled;
+        pill.style.cssText = `
+            background: ${isEnabled ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' : 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'};
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-family: 'Roboto', Arial, sans-serif;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            text-align: center;
+            min-width: 60px;
+        `;
+        pill.textContent = isEnabled ? 'ON' : 'OFF';
+
+        toggleButton.appendChild(pill);
+        document.body.appendChild(toggleButton);
+
+        // Add animation styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes togglePulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+                100% { transform: scale(1); }
+            }
+            #toggle-pill:hover {
+                transform: scale(1.05);
+                box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Toggle functionality
+        toggleButton.addEventListener('click', () => {
+            scriptEnabled = !scriptEnabled;
+
+            // Save state to localStorage
+            localStorage.setItem('autoEditScriptEnabled', scriptEnabled.toString());
+
+            pill.style.animation = 'togglePulse 0.3s ease';
+            setTimeout(() => {
+                pill.style.animation = '';
+            }, 300);
+
+            if (scriptEnabled) {
+                pill.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
+                pill.textContent = 'ON';
+                createNotification('✓ Script activado', 'success');
+                console.log('Script ENABLED - State saved to localStorage');
+
+                // Restart monitoring if needed
+                if (!hasAutoSubmitted) {
+                    setupInputMonitor();
+                    setupInvestigacionMonitor();
+                    setupSubmitButtonMonitor();
+                }
+            } else {
+                pill.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+                pill.textContent = 'OFF';
+                createNotification('✗ Script desactivado', 'warning');
+                console.log('Script DISABLED - State saved to localStorage');
+
+                // Clean up all observers
+                cleanupObservers();
+                if (autoSubmitTimer) {
+                    clearTimeout(autoSubmitTimer);
+                    autoSubmitTimer = null;
+                }
+            }
+        });
+
+        console.log('✓ Toggle button created with state:', scriptEnabled ? 'ON' : 'OFF');
+    }
 
     function createNotification(message, type = 'info') {
         const notification = document.createElement('div');
@@ -33,7 +131,7 @@
 
         notification.style.cssText = `
             position: fixed;
-            top: 20px;
+            top: 80px;
             right: 20px;
             background: ${colors[type]};
             color: white;
@@ -73,6 +171,56 @@
         }, 3000);
     }
 
+    function shouldScriptActivate() {
+        if (!scriptEnabled) {
+            console.log('Script is disabled by toggle');
+            return false;
+        }
+
+        console.log('--- Checking activation conditions ---');
+
+        // CONDICIÓN 1: NO activar si detecta h1 "Unidad" + p "Edita un producto..."
+        const h1Elements = document.querySelectorAll('h1.a-size-base');
+        for (let h1 of h1Elements) {
+            if (h1.textContent.trim() === 'Unidad') {
+                let nextElement = h1.nextElementSibling;
+                let checkCount = 0;
+
+                while (nextElement && checkCount < 3) {
+                    if (nextElement.tagName === 'P' &&
+                        nextElement.classList.contains('a-size-small') &&
+                        nextElement.textContent.trim() === 'Edita un producto de un contenedor.') {
+
+                        console.log('✗ BLOCKED: Single product edit mode detected');
+                        return false;
+                    }
+                    nextElement = nextElement.nextElementSibling;
+                    checkCount++;
+                }
+            }
+        }
+
+        // CONDICIÓN 2: Activar SOLO si detecta dt "Modo: " + dd "Unidad"
+        const dtElements = document.querySelectorAll('dt.a-list-item');
+        for (let dt of dtElements) {
+            if (dt.textContent.trim() === 'Modo:') {
+                const dd = dt.nextElementSibling;
+
+                if (dd &&
+                    dd.tagName === 'DD' &&
+                    dd.classList.contains('a-list-item') &&
+                    dd.textContent.trim() === 'Unidad') {
+
+                    console.log('✓ ACTIVATED: Modo: Unidad detected');
+                    return true;
+                }
+            }
+        }
+
+        console.log('✗ NOT ACTIVATED: Modo: Unidad not found');
+        return false;
+    }
+
     function getContainerIdFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
         const containerId = urlParams.get('containerId');
@@ -85,6 +233,8 @@
     }
 
     function clickSubmitButton() {
+        if (!scriptEnabled) return false;
+
         if (hasAutoSubmitted) {
             console.log('Already auto-submitted, skipping');
             return false;
@@ -99,7 +249,6 @@
             console.log('✓ Submit button clicked automatically!');
             createNotification('✓ Enviando automáticamente...', 'success');
 
-            // Cleanup observers after successful submit
             cleanupObservers();
             return true;
         }
@@ -109,6 +258,8 @@
     }
 
     function checkAndClickSubmitButton() {
+        if (!scriptEnabled) return false;
+
         if (submitButtonClicked) {
             return true;
         }
@@ -122,13 +273,14 @@
             createNotification('Botón detectado, enviando en 0.7s...', 'info');
 
             setTimeout(() => {
+                if (!scriptEnabled) return;
+
                 console.log('0.7 seconds elapsed, clicking submit button...');
                 submitButton.click();
                 submitButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
                 console.log('✓ Submit button auto-clicked!');
                 createNotification('✓ Formulario enviado', 'success');
 
-                // Cleanup after clicking
                 if (submitButtonObserver) {
                     submitButtonObserver.disconnect();
                     submitButtonObserver = null;
@@ -142,17 +294,17 @@
     }
 
     function setupSubmitButtonMonitor() {
+        if (!scriptEnabled) return;
+
         console.log('Setting up monitor for submit button...');
 
-        // Check immediately
         if (checkAndClickSubmitButton()) {
             return;
         }
 
-        // Throttled MutationObserver for submit button
         let observerTimeout = null;
         submitButtonObserver = new MutationObserver((mutations) => {
-            if (observerTimeout) return;
+            if (!scriptEnabled || observerTimeout) return;
 
             observerTimeout = setTimeout(() => {
                 observerTimeout = null;
@@ -173,34 +325,93 @@
     }
 
     function checkAndClickInvestigacionPendiente() {
-        if (investigacionClicked) {
+        if (!scriptEnabled || investigacionClicked) {
             return true;
         }
 
-        console.log('Checking for INVESTIGACIÓN_PENDIENTE element...');
+        investigacionCheckAttempts++;
+        console.log(`Checking for INVESTIGACIÓN_PENDIENTE element... (Attempt ${investigacionCheckAttempts}/${MAX_INVESTIGACION_CHECKS})`);
 
-        const investigacionElement = Array.from(document.querySelectorAll('p.a-size-small')).find(p =>
-            p.textContent.includes('INVESTIGACIÓN_PENDIENTE')
-        );
+        const allElements = document.querySelectorAll('*');
+        let targetElement = null;
 
-        if (investigacionElement) {
+        for (let element of allElements) {
+            const directText = Array.from(element.childNodes)
+                .filter(node => node.nodeType === Node.TEXT_NODE)
+                .map(node => node.textContent.trim())
+                .join(' ');
+
+            const fullText = element.textContent.trim();
+
+            if ((directText.includes('Propietario:') && directText.includes('INVESTIGACIÓN_PENDIENTE')) ||
+                (fullText === 'Propietario: INVESTIGACIÓN_PENDIENTE')) {
+
+                if (element.tagName === 'LABEL' ||
+                    element.classList.contains('a-radio') ||
+                    element.classList.contains('a-radio-label') ||
+                    element.closest('.a-radio')) {
+
+                    targetElement = element;
+                    console.log('Found target element:', element.tagName, element.className);
+                    break;
+                }
+
+                if (element.tagName === 'P') {
+                    const clickableParent = element.closest('label') ||
+                                          element.closest('.a-radio') ||
+                                          element.closest('[role="radio"]') ||
+                                          element.parentElement;
+
+                    if (clickableParent) {
+                        targetElement = clickableParent;
+                        console.log('Found clickable parent:', clickableParent.tagName, clickableParent.className);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (targetElement) {
             console.log('Found INVESTIGACIÓN_PENDIENTE element, clicking...');
+            console.log('Element details:', {
+                tag: targetElement.tagName,
+                class: targetElement.className,
+                text: targetElement.textContent.trim().substring(0, 100)
+            });
+
             investigacionClicked = true;
 
-            investigacionElement.click();
-            investigacionElement.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            targetElement.click();
+            targetElement.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+
+            const radioInput = targetElement.querySelector('input[type="radio"]');
+            if (radioInput) {
+                console.log('Found radio input, clicking it too');
+                radioInput.click();
+                radioInput.checked = true;
+                radioInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
 
             createNotification('✓ Clicked INVESTIGACIÓN_PENDIENTE', 'info');
 
-            // Wait 1 second then click submit button
             setTimeout(() => {
-                console.log('1 second elapsed, clicking submit button...');
+                if (!scriptEnabled) return;
+
+                console.log('0.5 seconds elapsed, clicking submit button...');
                 if (!clickSubmitButton()) {
                     setTimeout(clickSubmitButton, 500);
                 }
-            }, 1000);
+            }, 500);
 
             return true;
+        }
+
+        console.log('INVESTIGACIÓN_PENDIENTE element not found in this check');
+
+        if (investigacionCheckAttempts >= MAX_INVESTIGACION_CHECKS) {
+            console.log('INVESTIGACIÓN_PENDIENTE not found after maximum attempts. Stopping search.');
+            cleanupInvestigacionObserver();
+            return false;
         }
 
         return false;
@@ -225,21 +436,37 @@
         }
     }
 
+    function cleanupInvestigacionObserver() {
+        if (investigacionObserver) {
+            investigacionObserver.disconnect();
+            investigacionObserver = null;
+            console.log('INVESTIGACIÓN_PENDIENTE observer cleaned up');
+        }
+    }
+
     function setupInvestigacionMonitor() {
-        console.log('Setting up monitor for INVESTIGACIÓN_PENDIENTE element...');
+        if (!shouldScriptActivate()) {
+            console.log('⚠️ Script NOT activated - conditions not met');
+            return;
+        }
+
+        console.log('✓ Script ACTIVATED - Setting up monitor for INVESTIGACIÓN_PENDIENTE...');
 
         if (checkAndClickInvestigacionPendiente()) {
             return;
         }
 
         let checkCount = 0;
-        const maxChecks = 10;
-
         const intervalId = setInterval(() => {
-            checkCount++;
-            console.log(`Check #${checkCount} for INVESTIGACIÓN_PENDIENTE`);
+            if (!scriptEnabled) {
+                clearInterval(intervalId);
+                return;
+            }
 
-            if (checkAndClickInvestigacionPendiente() || checkCount >= maxChecks) {
+            checkCount++;
+            console.log(`Periodic check #${checkCount} for INVESTIGACIÓN_PENDIENTE`);
+
+            if (checkAndClickInvestigacionPendiente() || checkCount >= MAX_INVESTIGACION_CHECKS) {
                 clearInterval(intervalId);
                 console.log('Stopped periodic checks');
             }
@@ -247,7 +474,7 @@
 
         let observerTimeout = null;
         investigacionObserver = new MutationObserver((mutations) => {
-            if (observerTimeout) return;
+            if (!scriptEnabled || observerTimeout) return;
 
             observerTimeout = setTimeout(() => {
                 observerTimeout = null;
@@ -269,6 +496,8 @@
     }
 
     function scheduleAutoSubmit(inputValue) {
+        if (!scriptEnabled) return;
+
         if (autoSubmitTimer) {
             clearTimeout(autoSubmitTimer);
         }
@@ -278,6 +507,8 @@
             createNotification('Tote detectado, enviando en 1 seg...', 'info');
 
             autoSubmitTimer = setTimeout(() => {
+                if (!scriptEnabled) return;
+
                 console.log('Auto-submit timer triggered');
                 clickSubmitButton();
             }, 1000);
@@ -287,6 +518,8 @@
     }
 
     function fillContainerInput(containerId) {
+        if (!scriptEnabled) return false;
+
         console.log('Attempting to fill container input with:', containerId);
 
         const input = document.querySelector('input[name="containerId"]') ||
@@ -306,9 +539,13 @@
     }
 
     function setupInputMonitor() {
+        if (!scriptEnabled) return;
+
         console.log('Setting up input monitor...');
 
         document.addEventListener('input', (e) => {
+            if (!scriptEnabled) return;
+
             if (e.target.type === 'text' && !hasAutoSubmitted) {
                 const newValue = e.target.value.trim();
                 if (newValue && newValue !== lastInputValue) {
@@ -342,6 +579,8 @@
             createNotification(`✓ Tote: ${containerId}`, 'success');
 
             setTimeout(() => {
+                if (!scriptEnabled) return;
+
                 const loadButton = Array.from(document.querySelectorAll('button')).find(btn =>
                     btn.textContent.toLowerCase().includes('load')
                 );
@@ -358,12 +597,24 @@
         setupSubmitButtonMonitor();
     }
 
+    // Initialize toggle button when DOM is ready
+    function initToggleButton() {
+        if (document.body) {
+            createToggleButton();
+        } else {
+            setTimeout(initToggleButton, 100);
+        }
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
+            initToggleButton();
             setTimeout(autoFill, 500);
         });
     } else {
+        initToggleButton();
         setTimeout(autoFill, 500);
     }
 
 })();
+
