@@ -1,8 +1,8 @@
 
 // ==UserScript==
-// @name         Sideline autodrop + Edit
+// @name         Sideline autodrop + Edit v3
 // @namespace    http://tampermonkey.net/
-// @version      6.1
+// @version      6.3
 // @description  Automatically drops containers from within the Sideline app and opens Edit Items
 // @author       juagarcm
 // @match        https://aft-poirot-website-dub.dub.proxy.amazon.com/*
@@ -13,6 +13,96 @@
 
 (function() {
     'use strict';
+
+    // Add animation styles
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes swipeUpBounce {
+            0% {
+                transform: translate(-50%, 100px);
+                opacity: 0;
+            }
+            60% {
+                transform: translate(-50%, -20px);
+                opacity: 1;
+            }
+            80% {
+                transform: translate(-50%, 5px);
+            }
+            100% {
+                transform: translate(-50%, 0);
+                opacity: 1;
+            }
+        }
+        @keyframes swipeDown {
+            0% {
+                transform: translate(-50%, 0);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, 100px);
+                opacity: 0;
+            }
+        }
+        @keyframes checkmarkDraw {
+            0% {
+                stroke-dashoffset: 50;
+            }
+            100% {
+                stroke-dashoffset: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Function to show animated success checkmark
+    function showSuccessCheckmark() {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, 100px);
+            z-index: 999999;
+            animation: swipeUpBounce 0.5s ease-out forwards;
+        `;
+
+        // Create SVG checkmark - smaller and simpler
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '60');
+        svg.setAttribute('height', '60');
+        svg.setAttribute('viewBox', '0 0 100 100');
+
+        // Green circle background
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '50');
+        circle.setAttribute('cy', '50');
+        circle.setAttribute('r', '45');
+        circle.setAttribute('fill', '#00AA00');
+
+        // White checkmark
+        const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        checkmark.setAttribute('d', 'M30 50 L42 62 L70 34');
+        checkmark.setAttribute('stroke', 'white');
+        checkmark.setAttribute('stroke-width', '8');
+        checkmark.setAttribute('fill', 'none');
+        checkmark.setAttribute('stroke-linecap', 'round');
+        checkmark.setAttribute('stroke-linejoin', 'round');
+        checkmark.setAttribute('stroke-dasharray', '50');
+        checkmark.setAttribute('stroke-dashoffset', '50');
+        checkmark.style.animation = 'checkmarkDraw 0.3s ease-out 0.2s forwards';
+
+        svg.appendChild(circle);
+        svg.appendChild(checkmark);
+        notification.appendChild(svg);
+        document.body.appendChild(notification);
+
+        // Remove after 0.7 seconds with swipe down animation
+        setTimeout(() => {
+            notification.style.animation = 'swipeDown 0.3s ease-in forwards';
+            setTimeout(() => notification.remove(), 300);
+        }, 700);
+    }
 
     // Create TOP RIGHT container for Ready to Stow and Recycle - STACKED VERTICALLY
     const topRightContainer = document.createElement('div');
@@ -309,7 +399,10 @@
             buttonElement.disabled = false;
             buttonElement.textContent = originalText;
             buttonElement.style.backgroundColor = originalColor;
-            alert(`✓ Tote ${toteId} (${toteLocation}) movido a ${dropzone}`);
+
+            // Show fast animated checkmark
+            showSuccessCheckmark();
+            console.log(`✓ Tote ${toteId} (${toteLocation}) movido a ${dropzone}`);
 
         } catch (error) {
             buttonElement.disabled = false;
@@ -341,3 +434,4 @@ Revisa la consola (F12) para más información.`);
 
     console.log('Sideline Auto-Drop script loaded successfully');
 })();
+
