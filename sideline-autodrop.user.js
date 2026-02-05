@@ -1,6 +1,6 @@
 
 // ==UserScript==
-// @name         Sideline autodrop + Edit v3
+// @name         Sideline autodrop + Edit
 // @namespace    http://tampermonkey.net/
 // @version      6.3
 // @description  Automatically drops containers from within the Sideline app and opens Edit Items
