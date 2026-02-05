@@ -1,8 +1,8 @@
 
 // ==UserScript==
-// @name         Auto Edit v12 botón
+// @name         Auto Edit fixed
 // @namespace    http://tampermonkey.net/
-// @version      3.3
+// @version      3.4
 // @description  Automatizes Pending Research Process now with an amazing button
 // @author       juagarcm
 // @match        https://aft-qt-eu.aka.amazon.com/app/edititems*
@@ -13,7 +13,7 @@
 (function() {
     'use strict';
 
-    console.log('Edit Items Auto-Filler v3.3 loaded at:', new Date().toISOString());
+    console.log('Edit Items Auto-Filler v3.4 loaded at:', new Date().toISOString());
 
     // Script state management - Load from localStorage
     let scriptEnabled = localStorage.getItem('autoEditScriptEnabled') !== 'false'; // Default to true
@@ -27,6 +27,7 @@
     let submitButtonClicked = false;
     let investigacionCheckAttempts = 0;
     const MAX_INVESTIGACION_CHECKS = 5;
+    let initialCheckComplete = false;
 
     // Create toggle button
     function createToggleButton() {
@@ -171,6 +172,26 @@
         }, 3000);
     }
 
+    function checkForBlockingH1Elements() {
+        console.log('--- Checking for blocking H1 elements ---');
+
+        const h1Elements = document.querySelectorAll('h1.a-size-base');
+
+        for (let h1 of h1Elements) {
+            const h1Text = h1.textContent.trim();
+
+            // Check for "Sku" or "Lote fechado"
+            if (h1Text === 'Sku' || h1Text === 'Lote fechado') {
+                console.log(`✗ BLOCKED: Found blocking H1 element with text "${h1Text}"`);
+                createNotification(`✗ Script bloqueado: ${h1Text} detectado`, 'warning');
+                return true;
+            }
+        }
+
+        console.log('✓ No blocking H1 elements found');
+        return false;
+    }
+
     function shouldScriptActivate() {
         if (!scriptEnabled) {
             console.log('Script is disabled by toggle');
@@ -178,6 +199,11 @@
         }
 
         console.log('--- Checking activation conditions ---');
+
+        // NEW CHECK: Block if "Sku" or "Lote fechado" H1 exists
+        if (checkForBlockingH1Elements()) {
+            return false;
+        }
 
         // CONDICIÓN 1: NO activar si detecta h1 "Unidad" + p "Edita un producto..."
         const h1Elements = document.querySelectorAll('h1.a-size-base');
@@ -557,7 +583,34 @@
         console.log('✓ Input monitor started');
     }
 
+    async function performInitialCheck() {
+        console.log('--- Performing initial 1-second wait and check ---');
+
+        // Wait 1 second before doing anything
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        console.log('1 second elapsed, checking conditions...');
+
+        // Check for blocking elements
+        if (checkForBlockingH1Elements()) {
+            console.log('⚠️ Script will NOT activate due to blocking H1 elements');
+            initialCheckComplete = true;
+            return false;
+        }
+
+        initialCheckComplete = true;
+        return true;
+    }
+
     async function autoFill() {
+        // Perform initial 1-second wait and check
+        const canProceed = await performInitialCheck();
+
+        if (!canProceed) {
+            console.log('Script blocked from activating');
+            return;
+        }
+
         const containerId = getContainerIdFromUrl();
 
         if (!containerId) {
@@ -570,7 +623,7 @@
 
         console.log('Starting auto-fill process for:', containerId);
 
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         const filled = fillContainerInput(containerId);
 
