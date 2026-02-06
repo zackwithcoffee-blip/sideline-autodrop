@@ -1,14 +1,16 @@
 
 // ==UserScript==
-// @name         Sideline autodrop + Edit
+// @name         Sideline autodrop + Edit + DPT + Pandash
 // @namespace    http://tampermonkey.net/
-// @version      6.3
+// @version      7.0
 // @description  Automatically drops containers from within the Sideline app and opens Edit Items
 // @author       juagarcm
 // @match        https://aft-poirot-website-dub.dub.proxy.amazon.com/*
 // @grant        GM_xmlhttpRequest
 // @connect      aft-moveapp-dub-dub.dub.proxy.amazon.com
 // @connect      aft-qt-eu.aka.amazon.com
+// @connect      wave.qubit.amazon.dev
+// @connect      pandash.amazon.com
 // ==/UserScript==
 
 (function() {
@@ -67,20 +69,17 @@
             animation: swipeUpBounce 0.5s ease-out forwards;
         `;
 
-        // Create SVG checkmark - smaller and simpler
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('width', '60');
         svg.setAttribute('height', '60');
         svg.setAttribute('viewBox', '0 0 100 100');
 
-        // Green circle background
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', '50');
         circle.setAttribute('cy', '50');
         circle.setAttribute('r', '45');
         circle.setAttribute('fill', '#00AA00');
 
-        // White checkmark
         const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         checkmark.setAttribute('d', 'M30 50 L42 62 L70 34');
         checkmark.setAttribute('stroke', 'white');
@@ -97,14 +96,13 @@
         notification.appendChild(svg);
         document.body.appendChild(notification);
 
-        // Remove after 0.7 seconds with swipe down animation
         setTimeout(() => {
             notification.style.animation = 'swipeDown 0.3s ease-in forwards';
             setTimeout(() => notification.remove(), 300);
         }, 700);
     }
 
-    // Create TOP RIGHT container for Ready to Stow and Recycle - STACKED VERTICALLY
+    // Create TOP RIGHT container - STACKED VERTICALLY
     const topRightContainer = document.createElement('div');
     topRightContainer.style.cssText = `
         position: fixed;
@@ -114,34 +112,432 @@
         display: flex;
         flex-direction: column;
         gap: 10px;
+        align-items: flex-end;
     `;
 
-    // Create EXCEPCIONES button - BOTTOM LEFT
+    // Create Ready to Stow button (circle with checkmark that expands to pill on hover)
+    const readyToStowButton = document.createElement('button');
+    readyToStowButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; margin-top: -2px;">✓</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">R2S</span>';
+    readyToStowButton.style.cssText = `
+        width: 45px;
+        height: 45px;
+        background-color: #00AA00;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 0;
+    `;
+
+    let isReadyHovering = false;
+
+    readyToStowButton.addEventListener('mouseenter', () => {
+        isReadyHovering = true;
+        const emoji = readyToStowButton.querySelector('.emoji');
+        const text = readyToStowButton.querySelector('.text');
+
+        readyToStowButton.style.width = '130px';
+        readyToStowButton.style.borderRadius = '22.5px';
+        readyToStowButton.style.padding = '0 16px';
+        readyToStowButton.style.justifyContent = 'flex-start';
+
+        emoji.style.opacity = '0';
+        emoji.style.width = '0';
+        emoji.style.transition = 'all 0.2s ease';
+
+        setTimeout(() => {
+            if (isReadyHovering) {
+                text.style.display = 'inline';
+                text.style.opacity = '1';
+                text.style.transition = 'opacity 0.2s ease';
+            }
+        }, 100);
+    });
+
+    readyToStowButton.addEventListener('mouseleave', () => {
+        isReadyHovering = false;
+        const emoji = readyToStowButton.querySelector('.emoji');
+        const text = readyToStowButton.querySelector('.text');
+
+        text.style.opacity = '0';
+        setTimeout(() => {
+            text.style.display = 'none';
+            emoji.style.opacity = '1';
+            emoji.style.width = 'auto';
+        }, 100);
+
+        readyToStowButton.style.width = '45px';
+        readyToStowButton.style.borderRadius = '50%';
+        readyToStowButton.style.padding = '0';
+        readyToStowButton.style.justifyContent = 'center';
+    });
+
+    readyToStowButton.addEventListener('click', () => {
+        dropTote('dz-P-READYTOSTOW', readyToStowButton);
+    });
+
+    // Create Recycle button (circle with recycle emoji that expands to pill on hover)
+    const recycleButton = document.createElement('button');
+    recycleButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 18px;">♻️</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 2px;">RECYCLE</span>';
+    recycleButton.style.cssText = `
+        width: 45px;
+        height: 45px;
+        background-color: #FFC107;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 0;
+    `;
+
+    let isRecycleHovering = false;
+
+    recycleButton.addEventListener('mouseenter', () => {
+        isRecycleHovering = true;
+        const emoji = recycleButton.querySelector('.emoji');
+        const text = recycleButton.querySelector('.text');
+
+        recycleButton.style.width = '130px';
+        recycleButton.style.borderRadius = '22.5px';
+        recycleButton.style.padding = '0 16px';
+        recycleButton.style.justifyContent = 'flex-start';
+
+        emoji.style.opacity = '0';
+        emoji.style.width = '0';
+        emoji.style.transition = 'all 0.2s ease';
+
+        setTimeout(() => {
+            if (isRecycleHovering) {
+                text.style.display = 'inline';
+                text.style.opacity = '1';
+                text.style.transition = 'opacity 0.2s ease';
+            }
+        }, 100);
+    });
+
+    recycleButton.addEventListener('mouseleave', () => {
+        isRecycleHovering = false;
+        const emoji = recycleButton.querySelector('.emoji');
+        const text = recycleButton.querySelector('.text');
+
+        text.style.opacity = '0';
+        setTimeout(() => {
+            text.style.display = 'none';
+            emoji.style.opacity = '1';
+            emoji.style.width = 'auto';
+        }, 100);
+
+        recycleButton.style.width = '45px';
+        recycleButton.style.borderRadius = '50%';
+        recycleButton.style.padding = '0';
+        recycleButton.style.justifyContent = 'center';
+    });
+
+    recycleButton.addEventListener('click', () => {
+        dropTote('dz-P-RECYCLE', recycleButton);
+    });
+
+    // Create Edit to Pending button (circle with hand emoji that expands to pill on hover)
+    const editToPendingButton = document.createElement('button');
+    editToPendingButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 28px;">✋</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">PENDING</span>';
+    editToPendingButton.style.cssText = `
+        width: 45px;
+        height: 45px;
+        background-color: #FF5722;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 0;
+    `;
+
+    let isEditHovering = false;
+
+    editToPendingButton.addEventListener('mouseenter', () => {
+        isEditHovering = true;
+        const emoji = editToPendingButton.querySelector('.emoji');
+        const text = editToPendingButton.querySelector('.text');
+
+        editToPendingButton.style.width = '170px';
+        editToPendingButton.style.borderRadius = '22.5px';
+        editToPendingButton.style.padding = '0 16px';
+        editToPendingButton.style.justifyContent = 'flex-start';
+
+        emoji.style.opacity = '0';
+        emoji.style.width = '0';
+        emoji.style.transition = 'all 0.2s ease';
+
+        setTimeout(() => {
+            if (isEditHovering) {
+                text.style.display = 'inline';
+                text.style.opacity = '1';
+                text.style.transition = 'opacity 0.2s ease';
+            }
+        }, 100);
+    });
+
+    editToPendingButton.addEventListener('mouseleave', () => {
+        isEditHovering = false;
+        const emoji = editToPendingButton.querySelector('.emoji');
+        const text = editToPendingButton.querySelector('.text');
+
+        text.style.opacity = '0';
+        setTimeout(() => {
+            text.style.display = 'none';
+            emoji.style.opacity = '1';
+            emoji.style.width = 'auto';
+        }, 100);
+
+        editToPendingButton.style.width = '45px';
+        editToPendingButton.style.borderRadius = '50%';
+        editToPendingButton.style.padding = '0';
+        editToPendingButton.style.justifyContent = 'center';
+    });
+
+    editToPendingButton.addEventListener('click', () => {
+        editItemsToPendingResearch(editToPendingButton);
+    });
+
+    // Create DPT button (circle with emoji that expands to pill on hover)
+    const dptButton = document.createElement('button');
+    dptButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; margin-top: -2px; font-size: 28px;">💩</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">DPT</span>';
+    dptButton.style.cssText = `
+        width: 45px;
+        height: 45px;
+        background-color: #FFB366;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 0;
+    `;
+
+    let isDptHovering = false;
+
+    dptButton.addEventListener('mouseenter', () => {
+        isDptHovering = true;
+        const emoji = dptButton.querySelector('.emoji');
+        const text = dptButton.querySelector('.text');
+
+        dptButton.style.width = '90px';
+        dptButton.style.borderRadius = '22.5px';
+        dptButton.style.padding = '0 12px';
+        dptButton.style.justifyContent = 'flex-start';
+
+        emoji.style.opacity = '0';
+        emoji.style.width = '0';
+        emoji.style.transition = 'all 0.2s ease';
+
+        setTimeout(() => {
+            if (isDptHovering) {
+                text.style.display = 'inline';
+                text.style.opacity = '1';
+                text.style.transition = 'opacity 0.2s ease';
+            }
+        }, 100);
+    });
+
+    dptButton.addEventListener('mouseleave', () => {
+        isDptHovering = false;
+        const emoji = dptButton.querySelector('.emoji');
+        const text = dptButton.querySelector('.text');
+
+        text.style.opacity = '0';
+        setTimeout(() => {
+            text.style.display = 'none';
+            emoji.style.opacity = '1';
+            emoji.style.width = 'auto';
+        }, 100);
+
+        dptButton.style.width = '45px';
+        dptButton.style.borderRadius = '50%';
+        dptButton.style.padding = '0';
+        dptButton.style.justifyContent = 'center';
+    });
+
+    dptButton.addEventListener('click', () => {
+        const dptUrl = 'https://wave.qubit.amazon.dev/DPT/queue-initiation';
+        window.open(dptUrl, '_blank');
+        console.log('DPT opened');
+    });
+
+    // Create Pandash button (circle with panda emoji that expands to pill on hover)
+    const pandashButton = document.createElement('button');
+    pandashButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 28px;">🐼</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; font-size: 20px; margin-left: 5px;">PANDASH</span>';
+    pandashButton.style.cssText = `
+        width: 45px;
+        height: 45px;
+        background-color: #98D8C8;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 0;
+    `;
+
+    let isPandashHovering = false;
+
+    pandashButton.addEventListener('mouseenter', () => {
+        isPandashHovering = true;
+        const emoji = pandashButton.querySelector('.emoji');
+        const text = pandashButton.querySelector('.text');
+
+        pandashButton.style.width = '130px';
+        pandashButton.style.borderRadius = '22.5px';
+        pandashButton.style.padding = '0 12px';
+        pandashButton.style.justifyContent = 'flex-start';
+
+        emoji.style.opacity = '0';
+        emoji.style.width = '0';
+        emoji.style.transition = 'all 0.2s ease';
+
+        setTimeout(() => {
+            if (isPandashHovering) {
+                text.style.display = 'inline';
+                text.style.opacity = '1';
+                text.style.transition = 'opacity 0.2s ease';
+            }
+        }, 100);
+    });
+
+    pandashButton.addEventListener('mouseleave', () => {
+        isPandashHovering = false;
+        const emoji = pandashButton.querySelector('.emoji');
+        const text = pandashButton.querySelector('.text');
+
+        text.style.opacity = '0';
+        setTimeout(() => {
+            text.style.display = 'none';
+            emoji.style.opacity = '1';
+            emoji.style.width = 'auto';
+        }, 100);
+
+        pandashButton.style.width = '45px';
+        pandashButton.style.borderRadius = '50%';
+        pandashButton.style.padding = '0';
+        pandashButton.style.justifyContent = 'center';
+    });
+
+    pandashButton.addEventListener('click', () => {
+        const pandashUrl = 'https://pandash.amazon.com/';
+        window.open(pandashUrl, '_blank');
+        console.log('Pandash opened');
+    });
+
+    // Create EXCEPCIONES button - BOTTOM LEFT (circular with truck emoji)
     const excepcionesButton = document.createElement('button');
-    excepcionesButton.textContent = 'EXCEPCIONES';
+    excepcionesButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 28px;">🚚</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">EXCEPCIONES</span>';
     excepcionesButton.style.cssText = `
         position: fixed;
         bottom: 20px;
         left: 20px;
         z-index: 10000;
-        padding: 12px 24px;
+        width: 45px;
+        height: 45px;
         background-color: #003366;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 50%;
         cursor: pointer;
-        font-family: 'Roboto', Arial, sans-serif;
-        font-weight: bold;
-        font-size: 14px;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        transition: all 0.3s;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 0;
     `;
+
+    let isExcepcionesHovering = false;
+
+    excepcionesButton.addEventListener('mouseenter', () => {
+        isExcepcionesHovering = true;
+        const emoji = excepcionesButton.querySelector('.emoji');
+        const text = excepcionesButton.querySelector('.text');
+
+        excepcionesButton.style.width = '220px';
+        excepcionesButton.style.borderRadius = '22.5px';
+        excepcionesButton.style.padding = '0 16px';
+        excepcionesButton.style.justifyContent = 'flex-start';
+
+        emoji.style.opacity = '0';
+        emoji.style.width = '0';
+        emoji.style.transition = 'all 0.2s ease';
+
+        setTimeout(() => {
+            if (isExcepcionesHovering) {
+                text.style.display = 'inline';
+                text.style.opacity = '1';
+                text.style.transition = 'opacity 0.2s ease';
+            }
+        }, 100);
+    });
+
+    excepcionesButton.addEventListener('mouseleave', () => {
+        isExcepcionesHovering = false;
+        const emoji = excepcionesButton.querySelector('.emoji');
+        const text = excepcionesButton.querySelector('.text');
+
+        text.style.opacity = '0';
+        setTimeout(() => {
+            text.style.display = 'none';
+            emoji.style.opacity = '1';
+            emoji.style.width = 'auto';
+        }, 100);
+
+        excepcionesButton.style.width = '45px';
+        excepcionesButton.style.borderRadius = '50%';
+        excepcionesButton.style.padding = '0';
+        excepcionesButton.style.justifyContent = 'center';
+    });
 
     // Create button container for other 8 buttons - BOTTOM LEFT (slightly above)
     const buttonContainer = document.createElement('div');
     buttonContainer.style.cssText = `
         position: fixed;
-        bottom: 70px;
+        bottom: 75px;
         left: 20px;
         z-index: 9999;
         display: grid;
@@ -176,13 +572,7 @@
         }
     });
 
-    // Button configurations
-    const topRightButtons = [
-        { text: 'READY TO STOW', dropzone: 'dz-P-READYTOSTOW', color: '#00AA00' },
-        { text: 'RECYCLE', dropzone: 'dz-P-RECYCLE', color: '#FFC107', textColor: 'black' },
-        { text: 'EDIT TO PENDING', action: 'editToPending', color: '#FF5722' }
-    ];
-
+    // Button configurations for exception buttons (now pill-shaped)
     const otherButtons = [
         { text: 'CUBIS', dropzone: 'dz-P-PendingCubisSW', color: '#003366' },
         { text: 'UNPLANNED', dropzone: 'dz-P-UnplannedPrepP3', color: '#003366' },
@@ -194,7 +584,7 @@
         { text: 'TT P1', dropzone: 'dz-P-TTP1', color: '#003366' }
     ];
 
-    // Function to create a button
+    // Function to create a pill-shaped button
     function createButton(config) {
         const button = document.createElement('button');
         button.textContent = config.text;
@@ -203,7 +593,7 @@
             background-color: ${config.color};
             color: ${config.textColor || 'white'};
             border: none;
-            border-radius: 4px;
+            border-radius: 22.5px;
             cursor: pointer;
             font-family: 'Roboto', Arial, sans-serif;
             font-weight: bold;
@@ -223,11 +613,7 @@
         });
 
         button.addEventListener('click', () => {
-            if (config.action === 'editToPending') {
-                editItemsToPendingResearch(button);
-            } else {
-                dropTote(config.dropzone, button);
-            }
+            dropTote(config.dropzone, button);
         });
 
         return button;
@@ -334,7 +720,6 @@
         const toteId = toteInfo.toteId;
         const toteLocation = toteInfo.isDestination ? 'destino' : 'origen';
 
-        // Open Edit Items with the container ID from Sideline page
         const editItemsUrl = `https://aft-qt-eu.aka.amazon.com/app/edititems?experience=Desktop&containerId=${encodeURIComponent(toteId)}`;
 
         const newWindow = window.open(editItemsUrl, '_blank');
@@ -371,7 +756,7 @@
             buttonElement.textContent = 'Validando...';
             console.log(`Step 1: Validating tote from ${toteLocation}:`, toteId);
 
-            const getContainerUrl = 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com/api/get-container';
+                       const getContainerUrl = 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com/api/get-container';
             const getContainerPayload = {
                 scannableId: toteId,
                 palletCheckRequired: "false"
@@ -400,7 +785,6 @@
             buttonElement.textContent = originalText;
             buttonElement.style.backgroundColor = originalColor;
 
-            // Show fast animated checkmark
             showSuccessCheckmark();
             console.log(`✓ Tote ${toteId} (${toteLocation}) movido a ${dropzone}`);
 
@@ -418,10 +802,11 @@ Revisa la consola (F12) para más información.`);
         }
     }
 
-    topRightButtons.forEach(config => {
-        const button = createButton(config);
-        topRightContainer.appendChild(button);
-    });
+    topRightContainer.appendChild(readyToStowButton);
+    topRightContainer.appendChild(recycleButton);
+    topRightContainer.appendChild(editToPendingButton);
+    topRightContainer.appendChild(dptButton);
+    topRightContainer.appendChild(pandashButton);
 
     otherButtons.forEach(config => {
         const button = createButton(config);
@@ -434,4 +819,3 @@ Revisa la consola (F12) para más información.`);
 
     console.log('Sideline Auto-Drop script loaded successfully');
 })();
-
