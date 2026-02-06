@@ -62,7 +62,7 @@
             icon: '🧑‍💻',
             items: [
                 { label: 'PS ICQA', code: 'PRPTR', icon: '🦉' },
-                { label: 'Sweeper', code: 'STWTR', icon: '🧹' },
+                { label: 'Sweeper', code: 'ICQAPSS', icon: '🧹' },
                 { label: 'PG', code: 'ICQATR', icon: '❤️‍🔥' },
                 { label: 'Aging', code: 'PIKTR', icon: '⛏️' },
                 { label: 'POUT', code: 'PAKTNG', icon: '🚚' },
