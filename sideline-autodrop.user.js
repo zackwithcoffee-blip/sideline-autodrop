@@ -1,6 +1,6 @@
 
 // ==UserScript==
-// @name         Sideline autodrop + Edit + DPT + Pandash
+// @name         Sideline autodrop + Edit + DPT + Pandash V3
 // @namespace    http://tampermonkey.net/
 // @version      7.0
 // @description  Automatically drops containers from within the Sideline app and opens Edit Items
