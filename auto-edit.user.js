@@ -1,6 +1,6 @@
 
 // ==UserScript==
-// @name         Auto Edit fixed v2
+// @name         Auto Edit fixed v4
 // @namespace    http://tampermonkey.net/
 // @version      3.5
 // @description  Automatizes Pending Research Process now with an amazing button
@@ -212,6 +212,44 @@
         return false;
     }
 
+    function checkForExactUnidadDD() {
+        console.log('--- Checking for exact <dd class="a-list-item">Unidad</dd> ---');
+
+        // First, verify that DT elements exist at all
+        const dtElements = document.querySelectorAll('dt.a-list-item');
+
+        if (dtElements.length === 0) {
+            console.log('✗ No DT elements found at all - NOT activating');
+            return false;
+        }
+
+        // Look for the exact pattern: dt "Modo:" followed by dd "Unidad"
+        for (let dt of dtElements) {
+            const dtText = dt.textContent.trim();
+
+            if (dtText === 'Modo:') {
+                const dd = dt.nextElementSibling;
+
+                // Check if there IS a DD element and it says exactly "Unidad"
+                if (dd &&
+                    dd.tagName === 'DD' &&
+                    dd.classList.contains('a-list-item') &&
+                    dd.textContent.trim() === 'Unidad') {
+
+                    console.log('✓ Found exact match: <dt>Modo:</dt> followed by <dd>Unidad</dd>');
+                    return true;
+                } else {
+                    // Found "Modo:" but the DD is missing or has different text
+                    console.log('✗ Found "Modo:" but DD is missing or has different value - NOT activating');
+                    return false;
+                }
+            }
+        }
+
+        console.log('✗ "Modo:" DT element not found - NOT activating');
+        return false;
+    }
+
     function shouldScriptActivate() {
         if (!scriptEnabled) {
             console.log('Script is disabled by toggle');
@@ -220,17 +258,17 @@
 
         console.log('--- Checking activation conditions ---');
 
-        // NEW CHECK: Block if "Sku" or "Lote fechado" DD exists
+        // Block if "Sku" or "Lote fechado" DD exists
         if (checkForBlockingDDElements()) {
             return false;
         }
 
-        // EXISTING CHECK: Block if "Sku" or "Lote fechado" H1 exists
+        // Block if "Sku" or "Lote fechado" H1 exists
         if (checkForBlockingH1Elements()) {
             return false;
         }
 
-        // CONDICIÓN 1: NO activar si detecta h1 "Unidad" + p "Edita un producto..."
+        // Block if h1 "Unidad" + p "Edita un producto..." exists
         const h1Elements = document.querySelectorAll('h1.a-size-base');
         for (let h1 of h1Elements) {
             if (h1.textContent.trim() === 'Unidad') {
@@ -251,25 +289,17 @@
             }
         }
 
-        // CONDICIÓN 2: Activar SOLO si detecta dt "Modo: " + dd "Unidad"
-        const dtElements = document.querySelectorAll('dt.a-list-item');
-        for (let dt of dtElements) {
-            if (dt.textContent.trim() === 'Modo:') {
-                const dd = dt.nextElementSibling;
+        // ONLY activate if the exact pattern exists
+        // This is now the ONLY way to return true
+        const hasExactPattern = checkForExactUnidadDD();
 
-                if (dd &&
-                    dd.tagName === 'DD' &&
-                    dd.classList.contains('a-list-item') &&
-                    dd.textContent.trim() === 'Unidad') {
-
-                    console.log('✓ ACTIVATED: Modo: Unidad detected');
-                    return true;
-                }
-            }
+        if (hasExactPattern) {
+            console.log('✓ ACTIVATED: Exact <dt>Modo:</dt><dd>Unidad</dd> pattern found');
+            return true;
+        } else {
+            console.log('✗ NOT ACTIVATED: Required pattern not found');
+            return false;
         }
-
-        console.log('✗ NOT ACTIVATED: Modo: Unidad not found');
-        return false;
     }
 
     function getContainerIdFromUrl() {
@@ -608,31 +638,39 @@
         console.log('✓ Input monitor started');
     }
 
-    async function performInitialCheck() {
-        console.log('--- Performing initial 1-second wait and check ---');
+   async function performInitialCheck() {
+    console.log('--- Performing initial 1-second wait and check ---');
 
-        // Wait 1 second before doing anything
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait 1 second before doing anything
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-        console.log('1 second elapsed, checking conditions...');
+    console.log('1 second elapsed, checking conditions...');
 
-        // Check for blocking DD elements
-        if (checkForBlockingDDElements()) {
-            console.log('⚠️ Script will NOT activate due to blocking DD elements');
-            initialCheckComplete = true;
-            return false;
-        }
-
-        // Check for blocking H1 elements
-        if (checkForBlockingH1Elements()) {
-            console.log('⚠️ Script will NOT activate due to blocking H1 elements');
-            initialCheckComplete = true;
-            return false;
-        }
-
+    // Check for blocking DD elements
+    if (checkForBlockingDDElements()) {
+        console.log('⚠️ Script will NOT activate due to blocking DD elements');
         initialCheckComplete = true;
-        return true;
+        return false;
     }
+
+    // Check for blocking H1 elements
+    if (checkForBlockingH1Elements()) {
+        console.log('⚠️ Script will NOT activate due to blocking H1 elements');
+        initialCheckComplete = true;
+        return false;
+    }
+
+    // NEW: Check if the required pattern exists
+    if (!checkForExactUnidadDD()) {
+        console.log('⚠️ Script will NOT activate - required <dt>Modo:</dt><dd>Unidad</dd> pattern not found');
+        initialCheckComplete = true;
+        return false;
+    }
+
+    console.log('✓ All checks passed - required pattern found');
+    initialCheckComplete = true;
+    return true;
+}
 
     async function autoFill() {
         // Perform initial 1-second wait and check
