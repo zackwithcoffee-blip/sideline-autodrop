@@ -117,7 +117,7 @@
 
     // Create Ready to Stow button (circle with checkmark that expands to pill on hover)
     const readyToStowButton = document.createElement('button');
-    readyToStowButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; margin-top: -2px;">✓</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">R2S</span>';
+    readyToStowButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; margin-top: -2px;">✔</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">R2S</span>';
     readyToStowButton.style.cssText = `
         width: 45px;
         height: 45px;
@@ -186,7 +186,7 @@
 
     // Create Recycle button (circle with recycle emoji that expands to pill on hover)
     const recycleButton = document.createElement('button');
-    recycleButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 18px;">♻️</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 2px;">RECYCLE</span>';
+    recycleButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 25px;">♻️</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 2px;">RECYCLE</span>';
     recycleButton.style.cssText = `
         width: 45px;
         height: 45px;
@@ -255,7 +255,7 @@
 
     // Create Edit to Pending button (circle with hand emoji that expands to pill on hover)
     const editToPendingButton = document.createElement('button');
-    editToPendingButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 28px;">✋</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">PENDING</span>';
+    editToPendingButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 28px;position: relative; top: -2px;">✋</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">PENDING</span>';
     editToPendingButton.style.cssText = `
         width: 45px;
         height: 45px;
@@ -324,7 +324,7 @@
 
     // Create DPT button (circle with emoji that expands to pill on hover)
     const dptButton = document.createElement('button');
-    dptButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; margin-top: -2px; font-size: 28px;">💩</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">DPT</span>';
+    dptButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; margin-top: -2px; font-size: 28px;position: relative; top: -3px;">💩</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">DPT</span>';
     dptButton.style.cssText = `
         width: 45px;
         height: 45px;
@@ -465,73 +465,104 @@
     });
 
     // Create EXCEPCIONES button - BOTTOM LEFT (circular with truck emoji)
-    const excepcionesButton = document.createElement('button');
-    excepcionesButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 28px;">🚚</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; margin-left: 5px;">EXCEPCIONES</span>';
-    excepcionesButton.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        z-index: 10000;
-        width: 45px;
-        height: 45px;
-        background-color: #003366;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        transition: all 0.3s ease;
-        overflow: hidden;
-        white-space: nowrap;
-        padding: 0;
-    `;
 
-    let isExcepcionesHovering = false;
+const excepcionesButton = document.createElement('button');
+excepcionesButton.innerHTML = '<span class="emoji" style="display: flex; align-items: center; justify-content: center; font-size: 28px;transform: scaleX(-1); position: absolute; left: 1;">🚚</span><span class="text" style="display: none; font-family: Roboto, sans-serif; font-weight: bold; opacity: 0; position: absolute; left: 16px; ">EXCEPCIONES</span>';
+excepcionesButton.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 10000;
+    width: 45px;
+    height: 45px;
+    background-color: #003366;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0;
+`;
 
-    excepcionesButton.addEventListener('mouseenter', () => {
-        isExcepcionesHovering = true;
-        const emoji = excepcionesButton.querySelector('.emoji');
-        const text = excepcionesButton.querySelector('.text');
+let isExcepcionesHovering = false;
+let isExcepcionesExpanded = false;
 
-        excepcionesButton.style.width = '220px';
-        excepcionesButton.style.borderRadius = '22.5px';
-        excepcionesButton.style.padding = '0 16px';
-        excepcionesButton.style.justifyContent = 'flex-start';
+// Function to expand the button with truck animation
+function expandButton() {
+    const emoji = excepcionesButton.querySelector('.emoji');
+    const text = excepcionesButton.querySelector('.text');
 
+    excepcionesButton.style.width = '200px';
+    excepcionesButton.style.borderRadius = '22.5px';
+    excepcionesButton.style.padding = '0 16px';
+    excepcionesButton.style.justifyContent = 'flex-start';
+
+    emoji.style.transition = 'transform 0.8s ease, opacity 0.1s ease 0.55s';
+    emoji.style.transform = 'scaleX(-1) translateX(-190px)';
+
+    text.style.display = 'block';
+    text.style.transition = 'opacity 0.3s ease 0.1s';
+    text.style.opacity = '1';
+
+    setTimeout(() => {
         emoji.style.opacity = '0';
-        emoji.style.width = '0';
-        emoji.style.transition = 'all 0.2s ease';
+    }, 350);
+}
+// Function to collapse the button with reverse animation
+function collapseButton() {
+    const emoji = excepcionesButton.querySelector('.emoji');
+    const text = excepcionesButton.querySelector('.text');
 
-        setTimeout(() => {
-            if (isExcepcionesHovering) {
-                text.style.display = 'inline';
-                text.style.opacity = '1';
-                text.style.transition = 'opacity 0.2s ease';
-            }
-        }, 100);
-    });
+    text.style.transition = 'opacity 0.2s ease';
+    text.style.opacity = '0';
 
-    excepcionesButton.addEventListener('mouseleave', () => {
-        isExcepcionesHovering = false;
-        const emoji = excepcionesButton.querySelector('.emoji');
-        const text = excepcionesButton.querySelector('.text');
+    emoji.style.opacity = '1';
+    emoji.style.transition = 'transform 0.6s ease, opacity 0.1s ease';
+    emoji.style.transform = 'scaleX(-1) translateX(0)';
 
-        text.style.opacity = '0';
-        setTimeout(() => {
-            text.style.display = 'none';
-            emoji.style.opacity = '1';
-            emoji.style.width = 'auto';
-        }, 100);
+    setTimeout(() => {
+        text.style.display = 'none';
+    }, 400);
 
-        excepcionesButton.style.width = '45px';
-        excepcionesButton.style.borderRadius = '50%';
-        excepcionesButton.style.padding = '0';
-        excepcionesButton.style.justifyContent = 'center';
-    });
+    excepcionesButton.style.width = '45px';
+    excepcionesButton.style.borderRadius = '50%';
+    excepcionesButton.style.padding = '0';
+    excepcionesButton.style.justifyContent = 'center';
+}
+
+// Click event to toggle the expanded state
+excepcionesButton.addEventListener('click', () => {
+    isExcepcionesExpanded = !isExcepcionesExpanded;
+
+    if (isExcepcionesExpanded) {
+        expandButton();
+    } else {
+        collapseButton();
+    }
+});
+
+excepcionesButton.addEventListener('mouseenter', () => {
+    isExcepcionesHovering = true;
+    if (!isExcepcionesExpanded) {
+        expandButton();
+    }
+});
+
+excepcionesButton.addEventListener('mouseleave', () => {
+    isExcepcionesHovering = false;
+    if (!isExcepcionesExpanded) {
+        collapseButton();
+    }
+});
+
+
 
     // Create button container for other 8 buttons - BOTTOM LEFT (slightly above)
     const buttonContainer = document.createElement('div');
