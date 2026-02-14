@@ -1,8 +1,8 @@
 
 // ==UserScript==
-// @name         Auto Edit fixed
+// @name         Auto Edit fixed v2
 // @namespace    http://tampermonkey.net/
-// @version      3.4
+// @version      3.5
 // @description  Automatizes Pending Research Process now with an amazing button
 // @author       juagarcm
 // @match        https://aft-qt-eu.aka.amazon.com/app/edititems*
@@ -13,7 +13,7 @@
 (function() {
     'use strict';
 
-    console.log('Edit Items Auto-Filler v3.4 loaded at:', new Date().toISOString());
+    console.log('Edit Items Auto-Filler v3.5 loaded at:', new Date().toISOString());
 
     // Script state management - Load from localStorage
     let scriptEnabled = localStorage.getItem('autoEditScriptEnabled') !== 'false'; // Default to true
@@ -172,6 +172,26 @@
         }, 3000);
     }
 
+    function checkForBlockingDDElements() {
+        console.log('--- Checking for blocking DD elements ---');
+
+        const ddElements = document.querySelectorAll('dd.a-list-item');
+
+        for (let dd of ddElements) {
+            const ddText = dd.textContent.trim();
+
+            // Check for "Sku" or "Lote fechado"
+            if (ddText === 'Sku' || ddText === 'Lote fechado') {
+                console.log(`✗ BLOCKED: Found blocking DD element with text "${ddText}"`);
+                createNotification(`✗ Script bloqueado: ${ddText} detectado`, 'warning');
+                return true;
+            }
+        }
+
+        console.log('✓ No blocking DD elements found');
+        return false;
+    }
+
     function checkForBlockingH1Elements() {
         console.log('--- Checking for blocking H1 elements ---');
 
@@ -200,7 +220,12 @@
 
         console.log('--- Checking activation conditions ---');
 
-        // NEW CHECK: Block if "Sku" or "Lote fechado" H1 exists
+        // NEW CHECK: Block if "Sku" or "Lote fechado" DD exists
+        if (checkForBlockingDDElements()) {
+            return false;
+        }
+
+        // EXISTING CHECK: Block if "Sku" or "Lote fechado" H1 exists
         if (checkForBlockingH1Elements()) {
             return false;
         }
@@ -591,7 +616,14 @@
 
         console.log('1 second elapsed, checking conditions...');
 
-        // Check for blocking elements
+        // Check for blocking DD elements
+        if (checkForBlockingDDElements()) {
+            console.log('⚠️ Script will NOT activate due to blocking DD elements');
+            initialCheckComplete = true;
+            return false;
+        }
+
+        // Check for blocking H1 elements
         if (checkForBlockingH1Elements()) {
             console.log('⚠️ Script will NOT activate due to blocking H1 elements');
             initialCheckComplete = true;
