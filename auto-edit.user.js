@@ -1,6 +1,6 @@
 
 // ==UserScript==
-// @name         Auto Edit fixed v4
+// @name         Auto Edit fixed
 // @namespace    http://tampermonkey.net/
 // @version      3.5
 // @description  Automatizes Pending Research Process now with an amazing button
@@ -740,4 +740,5 @@
     }
 
 })();
+
 
