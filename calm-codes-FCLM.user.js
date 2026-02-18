@@ -61,12 +61,12 @@
             color: '#e67e22',
             icon: '🧑‍💻',
             items: [
-                { label: 'PS ICQA', code: 'PRPTR', icon: '🦉' },
+                { label: 'PS ICQA', code: 'QARSH', icon: '🦉' },
                 { label: 'Sweeper', code: 'ICQAPSS', icon: '🧹' },
-                { label: 'PG', code: 'ICQATR', icon: '❤️‍🔥' },
-                { label: 'Aging', code: 'PIKTR', icon: '⛏️' },
-                { label: 'POUT', code: 'PAKTNG', icon: '🚚' },
-                { label: 'TT Andon', code: 'VRTR', icon: '🚦' },
+                { label: 'PG', code: 'ICQAPSR', icon: '❤️‍🔥' },
+                { label: 'Aging', code: 'ICQAPSO', icon: '⛏️' },
+                { label: 'POUT', code: 'PSTOPS', icon: '🚚' },
+                { label: 'TT Andon', code: 'ICQAPST', icon: '🚦' },
                 { label: 'Pick Consolidation', code: 'BINCON', icon: '💪' },
             ]
         },
@@ -360,4 +360,5 @@
     }
 
 })();
+
 
