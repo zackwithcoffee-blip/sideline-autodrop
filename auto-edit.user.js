@@ -5,7 +5,7 @@
 // @version      3.5
 // @description  Automatizes Pending Research Process now with an amazing button
 // @author       juagarcm
-// @match        https://aft-qt-eu.aka.amazon.com/app/edititems*
+// @match       https://qt.eu.aftx.amazonoperations.app/app/edititems?experience=Desktop
 // @grant        none
 // @run-at       document-start
 // ==/UserScript==
@@ -740,5 +740,6 @@
     }
 
 })();
+
 
 
