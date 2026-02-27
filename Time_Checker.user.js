@@ -3,7 +3,7 @@
 // @name         FCLM Portal - AA Editable Time Checker v8.5
 // @namespace    http://tampermonkey.net/
 // @version      8.5
-// @description  Checks each AA's timeline for editable time segments and displays SIOC + BINCON + POUT dashboards. Supports early (7-15), late (15-23) and night (23-7) shifts.
+// @description  Checks each AA's timeline for editable time segments and displays SIOC + BINCON + POUT dashboards.
 // @author       juagarcm
 // @match        https://fclm-portal.amazon.com/reports/functionRollup*
 // @grant        GM_xmlhttpRequest
@@ -1001,4 +1001,5 @@ function fetchPoutValue() {
     }
 
 })();
+
 
