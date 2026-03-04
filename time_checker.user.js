@@ -214,7 +214,7 @@
             z-index: 10000;
             display: flex;
             gap: 4px;
-            width: 128px;
+            width: 142.5px;
             box-sizing: border-box;
         `;
 
@@ -299,7 +299,7 @@
             overflow: hidden;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
-            min-width: 128px;
+            width: 141px;
         `;
 
         let lastRefreshed = 'Not yet';
@@ -433,7 +433,7 @@
             overflow: hidden;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
-            min-width: 128px;
+            width: 141px;
         `;
 
         let lastRefreshed = 'Not yet';
@@ -485,6 +485,7 @@
             justify-content: center;
         `;
 
+
         const binconCell = document.createElement('div');
         binconCell.style.cssText = `
             display: flex;
@@ -493,20 +494,26 @@
             justify-content: center;
             flex: 1;
             padding: 6px 8px;
+            overflow: hidden;       /* ← ADD THIS */
+            min-width: 0;           /* ← ADD THIS (flex shrink fix) */
         `;
 
         const binconValueDiv = document.createElement('div');
         binconValueDiv.id = 'bincon-value';
         binconValueDiv.style.cssText = `
-            font-size: 16px;
-            font-weight: 900;
-            color: rgb(255, 140, 00);
-            transition: color 0.5s ease;
-            text-align: center;
-            white-space: nowrap;
-            line-height: 1;
-            font-family: 'Courier New', monospace;
+           font-size: 16px;
+           font-weight: 900;
+           color: rgb(255, 140, 00);
+           transition: color 0.5s ease;
+           text-align: center;
+           white-space: nowrap;
+           line-height: 1;
+           font-family: 'Courier New', monospace;
+           max-width: 100%;        /* ← ADD THIS */
+           overflow: hidden;       /* ← ADD THIS */
         `;
+
+
         binconValueDiv.innerHTML = '<span id="bincon-hours-number">---</span><span id="bincon-hrs-suffix" style="font-size:11px;font-weight:bold;color:#bdc3c7;">hrs.</span>';
 
         binconCell.appendChild(binconValueDiv);
@@ -544,7 +551,7 @@
             overflow: hidden;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
-            min-width: 128px;
+            width: 141px;
         `;
 
         let lastRefreshed = 'Not yet';
@@ -693,7 +700,7 @@
                         }
 
                         if (hoursValue !== null && hoursValueElement) {
-                            hoursValueElement.textContent = hoursValue.toFixed(2);
+                            hoursValueElement.textContent = hoursValue.toFixed(1);
                             applyNAStyle(hoursValueElement);
                         } else if (hoursValueElement) {
                             hoursValueElement.textContent = 'N/A';
@@ -772,7 +779,7 @@
                         console.log('[FCLM AA Time Checker] BINCON total: ' + totalHours.toFixed(2) + ' hrs from ' + matchCount + ' AAs');
 
                         if (binconValueElement) {
-                            binconValueElement.textContent = totalHours.toFixed(2);
+                            binconValueElement.innerHTML = totalHours.toFixed(1) + '<span style="font-size:0.8em; font-weight:bold; color:#bdc3c7;">/40 </span>';
                             applyNAStyle(binconValueElement);
                             var color = getBinconColor(totalHours);
                             binconValueElement.style.color = color;
@@ -849,7 +856,7 @@
                         }
 
                         if (poutHours !== null && poutValueElement) {
-                            poutValueElement.textContent = poutHours.toFixed(2);
+                            poutValueElement.innerHTML = poutHours.toFixed(1) + '<span style="font-size:0.8em; font-weight:bold; color:#bdc3c7;">/40 </span>';
                             applyNAStyle(poutValueElement);
                             var color = getBinconColor(poutHours);
                             poutValueElement.style.color = color;
