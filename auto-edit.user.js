@@ -1,11 +1,11 @@
-
 // ==UserScript==
-// @name         Auto Edit fixed
+// @name         Auto Edit
 // @namespace    http://tampermonkey.net/
 // @version      3.5
 // @description  Automatizes Pending Research Process now with an amazing button
 // @author       juagarcm
-// @match       https://qt.eu.aftx.amazonoperations.app/app/edititems?experience=Desktop
+// @match        https://aft-qt-eu.aka.amazon.com/app/edititems?experience=Desktop
+// @match        https://qt.eu.aftx.amazonoperations.app/app/edititems?experience=Desktop
 // @grant        none
 // @run-at       document-start
 // ==/UserScript==
@@ -740,6 +740,4 @@
     }
 
 })();
-
-
 
