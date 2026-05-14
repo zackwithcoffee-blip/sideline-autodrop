@@ -148,17 +148,49 @@
     }
 
     function getBinconColor(value) {
-    var percentage = Math.min(value / 40, 1);
-    if (percentage < 0.5) {
-        var r = 255;
-        var g = Math.round(140 * (percentage / 0.5));
-        return 'rgb(' + r + ', ' + g + ', 0)';
-    } else {
-        var r2 = Math.round(255 * (1 - (percentage - 0.5) / 0.5));
-        var g2 = Math.round(140 + 80 * ((percentage - 0.5) / 0.5));
-        return 'rgb(' + r2 + ', ' + g2 + ', 0)';
+        // ── UNDER TARGET (0 → 40): Red → Green ──
+        if (value <= 40) {
+            var percentage = Math.min(value / 40, 1);
+            if (percentage < 0.5) {
+                var r = 255;
+                var g = Math.round(140 * (percentage / 0.5));
+                return 'rgb(' + r + ', ' + g + ', 0)';
+            } else {
+                var r2 = Math.round(255 * (1 - (percentage - 0.5) / 0.5));
+                var g2 = Math.round(140 + 80 * ((percentage - 0.5) / 0.5));
+                return 'rgb(' + r2 + ', ' + g2 + ', 0)';
+            }
+        }
+
+        // ── BUFFER ZONE (40 → 43): Stay green ──
+        if (value <= 43) {
+            return 'rgb(0, 220, 0)';
+        }
+
+        // ── OVER CAP (43 → 60+): Green → Yellow → Orange → Red ──
+        // Maps 43→60 as the full reverse gradient range
+        var overAmount = Math.min((value - 43) / 17, 1); // 0 at 43h, 1 at 60h
+
+        if (overAmount < 0.33) {
+            // Green → Yellow (0,220,0) → (255,220,0)
+            var t = overAmount / 0.33;
+            var r3 = Math.round(255 * t);
+            var g3 = 220;
+            return 'rgb(' + r3 + ', ' + g3 + ', 0)';
+        } else if (overAmount < 0.66) {
+            // Yellow → Orange (255,220,0) → (255,120,0)
+            var t2 = (overAmount - 0.33) / 0.33;
+            var r4 = 255;
+            var g4 = Math.round(220 - 100 * t2);
+            return 'rgb(' + r4 + ', ' + g4 + ', 0)';
+        } else {
+            // Orange → Red (255,120,0) → (255,30,0)
+            var t3 = (overAmount - 0.66) / 0.34;
+            var r5 = 255;
+            var g5 = Math.round(120 - 90 * t3);
+            return 'rgb(' + r5 + ', ' + g5 + ', 0)';
+        }
     }
-}
 
     // ─────────────────────────────────────────────────────────────────────────
     // DATE HELPERS
