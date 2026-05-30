@@ -1,14 +1,14 @@
-	
 // ==UserScript==
 // @name         Sideline One for All
 // @namespace    http://tampermonkey.net/
-// @version      9.0
+// @version      9.1
 // @description  Combines autodrop/multidrop with SKU companion buttons (FCResearch, TTSIM, Diver)
 // @author       juagarcm
 // @match        https://aft-poirot-website-dub.dub.proxy.amazon.com/?tool=V3
 // @match        https://aft-poirot-website.eu.aftx.amazonoperations.app/?tool=V3
 // @grant        GM_xmlhttpRequest
 // @connect      aft-moveapp-dub-dub.dub.proxy.amazon.com
+// @connect      aft-moveapp.eu.aftx.amazonoperations.app
 // @connect      aft-qt-eu.aka.amazon.com
 // @connect      wave.qubit.amazon.dev
 // @connect      pandash.amazon.com
@@ -17,7 +17,27 @@
 (function() {
     'use strict';
 
-    console.log(`[${new Date().toISOString()}] Sideline All-in-One v9.0 initialized`);
+    console.log(`[${new Date().toISOString()}] Sideline All-in-One v9.1 initialized`);
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // ██  DOMAIN DETECTION & API BASE URL
+    // ══════════════════════════════════════════════════════════════════════════════
+
+    const isNewDomain = window.location.hostname.includes('aftx.amazonoperations.app');
+    const MOVEAPP_BASE = isNewDomain
+        ? 'https://aft-moveapp.eu.aftx.amazonoperations.app'
+        : 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com';
+    const MOVEAPP_PAGE_URL = isNewDomain
+        ? 'https://aft-moveapp.eu.aftx.amazonoperations.app/move-container?jobId=200'
+        : 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com/move-container?jobId=200';
+
+    console.log(`[${new Date().toISOString()}] Domain detected: ${isNewDomain ? 'NEW (aftx)' : 'OLD (proxy)'}`);
+    console.log(`[${new Date().toISOString()}] MoveApp base: ${MOVEAPP_BASE}`);
+
+    // Cache for CSRF token and session ID fetched from move-app page
+    let cachedCsrfToken = null;
+    let cachedSessionId = null;
+    let tokenFetchPromise = null;
 
     // ══════════════════════════════════════════════════════════════════════════════
     // ██  SECTION 1: SKU COMPANION BUTTONS (FCResearch, TTSIM, Diver)
@@ -380,16 +400,123 @@
         return null;
     }
 
-    function getCsrfToken() {
+    // ─── TOKEN FETCHING (supports both old and new domain) ──────────────────────
+
+    function getCsrfTokenFromPage() {
         const metaTag = document.querySelector('meta[name="anti-csrftoken-a2z"]');
         if (metaTag) return metaTag.getAttribute('content');
         return null;
     }
 
-    function getSessionId() {
+    function getSessionIdFromPage() {
         const metaTag = document.querySelector('meta[name="session-id"]');
         if (metaTag) return metaTag.getAttribute('content');
         return null;
+    }
+
+    /**
+     * Fetches CSRF token and session ID from the move-app page.
+     * On the OLD domain, meta tags exist on the Poirot page itself.
+     * On the NEW domain, we need to fetch them from the move-app page.
+     * Results are cached to avoid repeated requests.
+     */
+    function fetchMoveAppTokens() {
+        // If on old domain, just use the page meta tags directly
+        if (!isNewDomain) {
+            return Promise.resolve({
+                csrfToken: getCsrfTokenFromPage(),
+                sessionId: getSessionIdFromPage()
+            });
+        }
+
+        // If we already have cached tokens, return them
+        if (cachedCsrfToken && cachedSessionId) {
+            return Promise.resolve({
+                csrfToken: cachedCsrfToken,
+                sessionId: cachedSessionId
+            });
+        }
+
+        // If a fetch is already in progress, return that promise
+        if (tokenFetchPromise) {
+            return tokenFetchPromise;
+        }
+
+        // Fetch the move-app page to extract tokens
+        tokenFetchPromise = new Promise((resolve, reject) => {
+            console.log(`[${new Date().toISOString()}] Fetching tokens from: ${MOVEAPP_PAGE_URL}`);
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: MOVEAPP_PAGE_URL,
+                headers: {
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                },
+                onload: function(response) {
+                    if (response.status >= 200 && response.status < 300) {
+                        const html = response.responseText;
+
+                        // Extract CSRF token
+                        const csrfMatch = html.match(/name="anti-csrftoken-a2z"\s+content="([^"]+)"/);
+                        if (csrfMatch) {
+                            cachedCsrfToken = csrfMatch[1];
+                        }
+
+                        // Extract session ID
+                        const sessionMatch = html.match(/name="session-id"\s+content="([^"]+)"/);
+                        if (sessionMatch) {
+                            cachedSessionId = sessionMatch[1];
+                        }
+
+                        // Also try data attributes or script-embedded tokens
+                        if (!cachedCsrfToken) {
+                            const altCsrfMatch = html.match(/anti-csrftoken-a2z['":\s]+['"]([^'"]+)['"]/);
+                            if (altCsrfMatch) cachedCsrfToken = altCsrfMatch[1];
+                        }
+                        if (!cachedSessionId) {
+                            const altSessionMatch = html.match(/session-id['":\s]+['"]([^'"]+)['"]/);
+                            if (altSessionMatch) cachedSessionId = altSessionMatch[1];
+                        }
+
+                        console.log(`[${new Date().toISOString()}] Tokens fetched - CSRF: ${cachedCsrfToken ? 'YES' : 'NO'}, Session: ${cachedSessionId ? 'YES' : 'NO'}`);
+
+                        tokenFetchPromise = null;
+                        resolve({
+                            csrfToken: cachedCsrfToken,
+                            sessionId: cachedSessionId
+                        });
+                    } else {
+                        console.error(`[${new Date().toISOString()}] Token fetch failed with status: ${response.status}`);
+                        tokenFetchPromise = null;
+                        // Fallback: try page meta tags anyway
+                        resolve({
+                            csrfToken: getCsrfTokenFromPage(),
+                            sessionId: getSessionIdFromPage()
+                        });
+                    }
+                },
+                onerror: function(error) {
+                    console.error(`[${new Date().toISOString()}] Token fetch error:`, error);
+                    tokenFetchPromise = null;
+                    resolve({
+                        csrfToken: getCsrfTokenFromPage(),
+                        sessionId: getSessionIdFromPage()
+                    });
+                },
+                timeout: 10000
+            });
+        });
+
+        return tokenFetchPromise;
+    }
+
+    /**
+     * Invalidate cached tokens (call this if an API call returns 401/403)
+     */
+    function invalidateTokenCache() {
+        cachedCsrfToken = null;
+        cachedSessionId = null;
+        tokenFetchPromise = null;
+        console.log(`[${new Date().toISOString()}] Token cache invalidated`);
     }
 
     function makeApiCall(url, payload, csrfToken, sessionId) {
@@ -411,6 +538,10 @@
                     console.log('API Response:', response.status, response.responseText);
                     if (response.status >= 200 && response.status < 300) {
                         resolve(response);
+                    } else if (response.status === 401 || response.status === 403) {
+                        // Token might be expired, invalidate cache for next attempt
+                        invalidateTokenCache();
+                        reject(response);
                     } else {
                         reject(response);
                     }
@@ -440,23 +571,31 @@
 
         buttonElement.disabled = true;
         const originalText = buttonElement.textContent;
+        const originalHTML = buttonElement.innerHTML;
         const originalColor = buttonElement.style.backgroundColor;
         buttonElement.textContent = 'Procesando...';
         buttonElement.style.backgroundColor = '#666666';
 
         try {
-            const csrfToken = getCsrfToken();
-            const sessionId = getSessionId();
+            // Fetch tokens (handles both old and new domain)
+            buttonElement.textContent = 'Obteniendo tokens...';
+            const tokens = await fetchMoveAppTokens();
+            const csrfToken = tokens.csrfToken;
+            const sessionId = tokens.sessionId;
+
+            if (!csrfToken) {
+                console.warn(`[${new Date().toISOString()}] WARNING: No CSRF token available`);
+            }
 
             buttonElement.textContent = 'Validando...';
-            const getContainerUrl = 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com/api/get-container';
+            const getContainerUrl = `${MOVEAPP_BASE}/api/get-container`;
             const getContainerPayload = { scannableId: toteId, palletCheckRequired: "false" };
             await makeApiCall(getContainerUrl, getContainerPayload, csrfToken, sessionId);
 
             await new Promise(resolve => setTimeout(resolve, 500));
 
             buttonElement.textContent = 'Moviendo...';
-            const moveContainerUrl = 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com/api/move-container';
+            const moveContainerUrl = `${MOVEAPP_BASE}/api/move-container`;
             const moveContainerPayload = {
                 sourceScannableId: null,
                 destinationScannableId: dropzone,
@@ -466,20 +605,17 @@
             await makeApiCall(moveContainerUrl, moveContainerPayload, csrfToken, sessionId);
 
             buttonElement.disabled = false;
-            buttonElement.textContent = originalText;
+            buttonElement.innerHTML = originalHTML;
             buttonElement.style.backgroundColor = originalColor;
             showSuccessCheckmark();
-            console.log(`✓ Tote ${toteId} (${toteLocation}) movido a ${dropzone}`);
+            console.log(`✓ Tote ${toteId} (${toteLocation}) movido a ${dropzone} via ${isNewDomain ? 'NEW' : 'OLD'} domain`);
 
         } catch (error) {
             buttonElement.disabled = false;
-            buttonElement.textContent = originalText;
+            buttonElement.innerHTML = originalHTML;
             buttonElement.style.backgroundColor = originalColor;
             const errorMsg = error.responseText || error.statusText || error.message || 'Error desconocido';
-            alert(`Error: No se pudo mover el tote.
-Status: ${error.status || 'desconocido'}
-Detalles: ${errorMsg}
-Revisa la consola (F12) para más información.`);
+            alert(`Error: No se pudo mover el tote.\nStatus: ${error.status || 'desconocido'}\nDetalles: ${errorMsg}\nDomain: ${MOVEAPP_BASE}\nRevisa la consola (F12) para más información.`);
         }
     }
 
@@ -510,6 +646,14 @@ Revisa la consola (F12) para más información.`);
         let errorCount = 0;
         let errors = [];
 
+        // Fetch tokens once before the loop
+        let tokens;
+        try {
+            tokens = await fetchMoveAppTokens();
+        } catch (e) {
+            tokens = { csrfToken: null, sessionId: null };
+        }
+
         for (let i = 0; i < totesCopy.length; i++) {
             const toteId = totesCopy[i];
             const statusEl = document.getElementById('multidrop-status');
@@ -522,15 +666,15 @@ Revisa la consola (F12) para más información.`);
             if (fillEl) fillEl.style.width = `${((i) / totalTotes) * 100}%`;
 
             try {
-                const csrfToken = getCsrfToken();
-                const sessionId = getSessionId();
+                const csrfToken = tokens.csrfToken;
+                const sessionId = tokens.sessionId;
 
-                const getContainerUrl = 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com/api/get-container';
+                const getContainerUrl = `${MOVEAPP_BASE}/api/get-container`;
                 await makeApiCall(getContainerUrl, { scannableId: toteId, palletCheckRequired: "false" }, csrfToken, sessionId);
 
                 await new Promise(resolve => setTimeout(resolve, 300));
 
-                const moveContainerUrl = 'https://aft-moveapp-dub-dub.dub.proxy.amazon.com/api/move-container';
+                const moveContainerUrl = `${MOVEAPP_BASE}/api/move-container`;
                 await makeApiCall(moveContainerUrl, {
                     sourceScannableId: null,
                     destinationScannableId: dropzone,
@@ -541,11 +685,46 @@ Revisa la consola (F12) para más información.`);
                 successCount++;
                 console.log(`✓ Multidrop: Tote ${toteId} movido a ${dropzone} (${i + 1}/${totalTotes})`);
             } catch (error) {
-                errorCount++;
-                const errorMsg = error.responseText || error.statusText || error.message || 'Error desconocido';
-                errors.push(`${toteId}: ${errorMsg}`);
-                console.error(`✗ Multidrop error for ${toteId}:`, error);
-                if (errorsEl) errorsEl.textContent = `Errores: ${errorCount}`;
+                // If 401/403, try refreshing tokens and retry once
+                if (error.status === 401 || error.status === 403) {
+                    console.log(`[${new Date().toISOString()}] Token expired, refreshing...`);
+                    invalidateTokenCache();
+                    try {
+                        tokens = await fetchMoveAppTokens();
+                        const csrfToken = tokens.csrfToken;
+                        const sessionId = tokens.sessionId;
+
+                        const getContainerUrl = `${MOVEAPP_BASE}/api/get-container`;
+                        await makeApiCall(getContainerUrl, { scannableId: toteId, palletCheckRequired: "false" }, csrfToken, sessionId);
+                        await new Promise(resolve => setTimeout(resolve, 300));
+
+                        const moveContainerUrl = `${MOVEAPP_BASE}/api/move-container`;
+                        await makeApiCall(moveContainerUrl, {
+                            sourceScannableId: null,
+                            destinationScannableId: dropzone,
+                            containerScannableId: toteId,
+                            confirmed: "true"
+                        }, csrfToken, sessionId);
+
+                        successCount++;
+                        console.log(`✓ Multidrop (retry): Tote ${toteId} movido a ${dropzone} (${i + 1}/${totalTotes})`);
+                        if (fillEl) fillEl.style.width = `${((i + 1) / totalTotes) * 100}%`;
+                        if (i < totesCopy.length - 1) await new Promise(resolve => setTimeout(resolve, 500));
+                        continue;
+                    } catch (retryError) {
+                        errorCount++;
+                        const errorMsg = retryError.responseText || retryError.statusText || retryError.message || 'Error desconocido';
+                        errors.push(`${toteId}: ${errorMsg} (retry failed)`);
+                        console.error(`✗ Multidrop retry error for ${toteId}:`, retryError);
+                        if (errorsEl) errorsEl.textContent = `Errores: ${errorCount}`;
+                    }
+                } else {
+                    errorCount++;
+                    const errorMsg = error.responseText || error.statusText || error.message || 'Error desconocido';
+                    errors.push(`${toteId}: ${errorMsg}`);
+                    console.error(`✗ Multidrop error for ${toteId}:`, error);
+                    if (errorsEl) errorsEl.textContent = `Errores: ${errorCount}`;
+                }
             }
 
             if (fillEl) fillEl.style.width = `${((i + 1) / totalTotes) * 100}%`;
@@ -924,6 +1103,7 @@ Revisa la consola (F12) para más información.`);
         emoji.style.transform = 'scaleX(-1) translateX(0)';
         setTimeout(() => { text.style.display = 'none'; }, 400);
         excepcionesButton.style.width = '45px'; excepcionesButton.style.borderRadius = '50%';
+        excepcionesButton.style.padding = '0'; excepcionesButton.style.just
         excepcionesButton.style.padding = '0'; excepcionesButton.style.justifyContent = 'center';
     }
 
